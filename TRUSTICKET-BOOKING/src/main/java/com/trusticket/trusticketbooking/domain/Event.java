@@ -2,6 +2,7 @@ package com.trusticket.trusticketbooking.domain;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
+@Builder
 @EntityListeners(AuditingEntityListener.class)
 public class Event extends BaseEntity{
     @Id
