@@ -1,5 +1,6 @@
 package com.trusticket.trusticketbooking.repository;
 
+import com.trusticket.trusticketbooking.domain.Booking;
 import com.trusticket.trusticketbooking.domain.Event;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,7 +10,12 @@ import org.springframework.stereotype.Repository;
 
 
 @Repository
-public interface EventRepository extends JpaRepository<Event, String> {
+public interface BookingRepository extends JpaRepository<Booking, Long> {
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT COUNT(b) FROM Booking b WHERE b.status != 'CANCELED'")
+    long countByStatusConfirmWithLock();
+
+    boolean existsBookingByEventIdAndMemberId(String eventId, Long memberId);
 
 }

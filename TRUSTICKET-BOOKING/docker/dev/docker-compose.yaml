@@ -10,5 +10,15 @@ services:
       - 4004:3306
     volumes:
       - ./volumes/mariadb:/var/lib/mysql
+  trusticket-booking-redis:
+    image: redis:6.2.6-alpine
+    ports:
+      - 6395:6379
+    command: redis-server /usr/local/etc/redis/redis.conf
+    container_name: tt-redis
+    volumes: # 마운트할 볼륨 설정
+      - ./volumes/redis/data:/data
+      - ./volumes/redis/conf:/usr/local/etc/redis/redis.conf
+    restart: always
 
  

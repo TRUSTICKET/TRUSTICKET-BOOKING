@@ -4,16 +4,29 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.trusticket.trusticketbooking.config.util.DatetimeUtil;
+import com.trusticket.trusticketbooking.domain.Booking;
 import com.trusticket.trusticketbooking.domain.Event;
+import com.trusticket.trusticketbooking.dto.BookingStatus;
+import com.trusticket.trusticketbooking.repository.BookingCancelRepository;
+import com.trusticket.trusticketbooking.repository.BookingRepository;
+import com.trusticket.trusticketbooking.repository.EventCacheRepository;
 import com.trusticket.trusticketbooking.repository.EventRepository;
+import jakarta.persistence.LockModeType;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Service
 @Slf4j
@@ -21,10 +34,84 @@ import java.util.Map;
 public class KafkaConsumerService {
 
     private final EventRepository eventRepository;
+    private final BookingRepository bookingRepository;
+    private final EventCacheRepository eventCacheRepository;
+    private final SSEService sseService;
+    private final BookingCancelRepository bookingCancelRepository;
+    private KafkaConsumer<String, String> kafkaConsumer; // Kafka Consumer 주입
 
     @KafkaListener(topics = "booking-request")
-    public void getMessage(String kafkaMessage){
-        log.info("Kafka Message: -> " + kafkaMessage);
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public void getMessage(ConsumerRecord<String, String> record){
+        String kafkaMessage = record.value();
+        log.info("Kafka Message: -> " + record.offset());
+        sseService.setOffsetData(record.offset());
+
+        // 수신한 JSON 형식의 메시지를 Map으로 변환
+        if(bookingCancelRepository.getBookingCancel(record.offset()) == null){
+            Map<Object, Object> map = new HashMap<>();
+            ObjectMapper mapper = new ObjectMapper();
+            try{
+                map = mapper.readValue(kafkaMessage, new TypeReference<Map<Object, Object>>() {});
+            }
+            catch(JsonProcessingException ex){
+                ex.printStackTrace();
+            }
+
+                Booking event = Booking.builder()
+                        .eventId((String)map.get("id"))
+                        .memberId(Long.parseLong((String)map.get("memberId")))
+                        .status("CONFIRM")
+                        .build();
+
+                Integer stock = eventCacheRepository.getBookingCache(event.getEventId());
+                if(stock == null){
+                    Event e = eventRepository.findById(event.getEventId()).orElseThrow(() -> {
+                        throw new NoSuchElementException("해당 이벤트를 찾을 수 없습니다");
+                    });
+                    eventCacheRepository.insertBookingCacheString(e.getEventId(), e.getMaxStock());
+                    stock = e.getStock();
+
+//                    try{
+//                        Optional<Event> e = eventRepository.findById(event.getEventId());
+//                        if(e.get() == null){
+//                            return;
+//                        }
+//                        else{
+//                            eventCacheRepository.insertBookingCacheString(e.get().getEventId(), e.get().getMaxStock());
+//                            stock = e.get().getStock();
+//                        }
+//                    }
+//                    catch(Exception e){
+//                        return;
+//                    }
+
+                }
+
+                long count = bookingRepository.countByStatusConfirmWithLock();
+
+                if(count < stock){
+                    if(!bookingRepository.existsBookingByEventIdAndMemberId(event.getEventId(), event.getMemberId())){
+                        bookingRepository.save(event);
+                        sseService.sendResultData(event.getMemberId(), new BookingStatus("SUCCESS", "예매에 성공했습니다. 결제화면으로 이동합니다."));
+                    }
+                    else{
+                        sseService.sendResultData(event.getMemberId(), new BookingStatus("FAIL", "이미 예매한 내역이 있습니다."));
+                    }
+                }
+                else{
+                    sseService.sendResultData(event.getMemberId(), new BookingStatus("FAIL", "인원이 초과되었습니다."));
+                }
+        }
+        else{
+            bookingCancelRepository.deleteBookingCancel(record.offset());
+        }
+
+    }
+
+    @KafkaListener(topics = "booking-cancel")
+    public void getCancelMessage(String kafkaMessage){
+
 
         // 수신한 JSON 형식의 메시지를 Map으로 변환
         Map<Object, Object> map = new HashMap<>();
@@ -35,6 +122,10 @@ public class KafkaConsumerService {
         catch(JsonProcessingException ex){
             ex.printStackTrace();
         }
+
+        log.info("대기열을 이탈합니다: -> " + (String)map.get("offsetId"));
+        bookingCancelRepository.insertBookingCancel(Long.parseLong((String)map.get("offsetId")));
+
     }
 
 
