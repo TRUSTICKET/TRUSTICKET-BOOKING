@@ -12,13 +12,13 @@ import java.util.concurrent.TimeUnit;
 public class EventCacheRepository {
     private final RedisTemplate<String, Integer> redisTemplate;
 
-    public void insertBookingCacheString (String eventId, Integer stock) {
-        String key = "booking/" + eventId;
+    public void insertEventCache (String eventId, Integer stock) {
+        String key = "event/" + eventId;
         redisTemplate.opsForValue().set(key, stock, 1, TimeUnit.HOURS);
     }
 
 
-    public Integer getBookingCache(String eventId) {
+    public Integer getEventCache(String eventId) {
         String key = "booking/" + eventId;
         return redisTemplate.opsForValue().get(key);
     }

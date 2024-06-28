@@ -31,7 +31,7 @@ public class SSEService {
             SseEmitter emitter = emitters.get(memberId);
             if(emitter != null){
                 try {
-                    emitter.send(currentOffset);
+                    emitter.send(new BookingStatus("WAIT", currentOffset.toString()));
                 } catch (IOException e) {
                     emitter.complete();
                     emitters.remove(emitter);

@@ -7,10 +7,7 @@ import com.trusticket.trusticketbooking.config.util.DatetimeUtil;
 import com.trusticket.trusticketbooking.domain.Booking;
 import com.trusticket.trusticketbooking.domain.Event;
 import com.trusticket.trusticketbooking.dto.BookingStatus;
-import com.trusticket.trusticketbooking.repository.BookingCancelRepository;
-import com.trusticket.trusticketbooking.repository.BookingRepository;
-import com.trusticket.trusticketbooking.repository.EventCacheRepository;
-import com.trusticket.trusticketbooking.repository.EventRepository;
+import com.trusticket.trusticketbooking.repository.*;
 import jakarta.persistence.LockModeType;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +35,7 @@ public class KafkaConsumerService {
     private final EventCacheRepository eventCacheRepository;
     private final SSEService sseService;
     private final BookingCancelRepository bookingCancelRepository;
+    private BookingCacheRepository bookingCacheRepository;
     private KafkaConsumer<String, String> kafkaConsumer; // Kafka Consumer 주입
 
     @KafkaListener(topics = "booking-request")
@@ -64,12 +62,12 @@ public class KafkaConsumerService {
                         .status("CONFIRM")
                         .build();
 
-                Integer stock = eventCacheRepository.getBookingCache(event.getEventId());
+                Integer stock = eventCacheRepository.getEventCache(event.getEventId());
                 if(stock == null){
                     Event e = eventRepository.findById(event.getEventId()).orElseThrow(() -> {
                         throw new NoSuchElementException("해당 이벤트를 찾을 수 없습니다");
                     });
-                    eventCacheRepository.insertBookingCacheString(e.getEventId(), e.getMaxStock());
+                    eventCacheRepository.insertEventCache(e.getEventId(), e.getMaxStock());
                     stock = e.getStock();
 
 //                    try{
@@ -90,18 +88,22 @@ public class KafkaConsumerService {
 
                 long count = bookingRepository.countByStatusConfirmWithLock();
 
+                BookingStatus status = new BookingStatus("SUCCESS", "예매에 성공했습니다. 결제화면으로 이동합니다.");
                 if(count < stock){
                     if(!bookingRepository.existsBookingByEventIdAndMemberId(event.getEventId(), event.getMemberId())){
                         bookingRepository.save(event);
-                        sseService.sendResultData(event.getMemberId(), new BookingStatus("SUCCESS", "예매에 성공했습니다. 결제화면으로 이동합니다."));
+
                     }
                     else{
-                        sseService.sendResultData(event.getMemberId(), new BookingStatus("FAIL", "이미 예매한 내역이 있습니다."));
+                        status = new BookingStatus("EXIST", "이미 예매한 내역이 있습니다.");
                     }
                 }
                 else{
-                    sseService.sendResultData(event.getMemberId(), new BookingStatus("FAIL", "인원이 초과되었습니다."));
+                    status = new BookingStatus("FAIL", "인원이 초과되었습니다.");
                 }
+
+                sseService.sendResultData(event.getMemberId(), status);
+                bookingCacheRepository.insertBookingCache(record.offset(), status.getResult());
         }
         else{
             bookingCancelRepository.deleteBookingCancel(record.offset());

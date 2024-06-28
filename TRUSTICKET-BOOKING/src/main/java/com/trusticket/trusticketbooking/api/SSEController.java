@@ -1,4 +1,4 @@
-package com.trusticket.trusticketbooking.controller;
+package com.trusticket.trusticketbooking.api;
 
 import com.trusticket.trusticketbooking.service.SSEService;
 import lombok.AllArgsConstructor;

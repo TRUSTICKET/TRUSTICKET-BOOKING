@@ -12,6 +12,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, Long> {
@@ -26,5 +28,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     @Transactional
     @Query("UPDATE Booking b SET b.status = :newStatus WHERE b.status = :oldStatus")
     int updateStatus(@Param("oldStatus") String oldStatus, @Param("newStatus") String newStatus);
+
+    List<Booking> findBookingsByMemberId(Long memberId);
 
 }
