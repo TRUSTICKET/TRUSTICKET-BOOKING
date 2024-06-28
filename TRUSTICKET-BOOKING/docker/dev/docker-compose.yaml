@@ -1,0 +1,24 @@
+version: "3.7"
+services:
+  trusticket-booking-database:
+    platform: linux/x86_64
+    image: mariadb:10.11.2
+    environment:
+      MYSQL_DATABASE: "trusticket-booking-db"
+      MYSQL_ROOT_PASSWORD: "1111"
+    ports:
+      - 4004:3306
+    volumes:
+      - ./volumes/mariadb:/var/lib/mysql
+  trusticket-booking-redis:
+    image: redis:6.2.6-alpine
+    ports:
+      - 6395:6379
+    command: redis-server /usr/local/etc/redis/redis.conf
+    container_name: tt-redis
+    volumes: # 마운트할 볼륨 설정
+      - ./volumes/redis/data:/data
+      - ./volumes/redis/conf:/usr/local/etc/redis/redis.conf
+    restart: always
+
+ 

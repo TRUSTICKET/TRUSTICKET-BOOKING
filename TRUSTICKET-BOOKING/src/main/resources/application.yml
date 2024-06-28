@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: trusticket-booking
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://localhost:4004/trusticket-booking-db?characterEncoding=UTF-8&serverTimezone=UTC
+    username: root
+    password: 1111
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+#        show_sql: true #show sql
+        default_batch_fetch_size: 100
+  kafka:
+    url: localhost:9092
+
+server:
+  port: 8082
+
+redis:
+  host: localhost
+  port: 6395
+
+eureka:
+  client:
+    fetch-registry: true
+    register-with-eureka: true
+    service-url:
+      defaultZone: http://127.0.0.1:8761/eureka
+  instance:
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
