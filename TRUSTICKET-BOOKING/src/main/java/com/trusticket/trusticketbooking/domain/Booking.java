@@ -1,10 +1,7 @@
 package com.trusticket.trusticketbooking.domain;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Table(name = "BOOKING")
@@ -24,9 +21,11 @@ public class Booking extends BaseEntity{
     @Column(name = "MEMBER_ID", nullable = false)
     private Long memberId;
 
+    @Setter
     @Column(name = "PAYMENT_ID")
     private Long paymentId;
 
+    @Setter
     @Column(name = "STATUS", nullable = false)
     private String status;
 }

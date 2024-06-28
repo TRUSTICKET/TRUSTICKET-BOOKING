@@ -157,4 +157,37 @@ public class KafkaConsumerService {
 
     }
 
+
+    @Transactional
+    @KafkaListener(topics = "payment-success")
+    public void PaymentListener(String kafkaMessage){
+        log.info("Kafka Message: -> " + kafkaMessage);
+
+        // 수신한 JSON 형식의 메시지를 Map으로 변환
+        Map<Object, Object> map = new HashMap<>();
+        ObjectMapper mapper = new ObjectMapper();
+        try{
+            map = mapper.readValue(kafkaMessage, new TypeReference<Map<Object, Object>>() {});
+        }
+        catch(JsonProcessingException ex){
+            ex.printStackTrace();
+        }
+
+        Long bookingId = Long.parseLong((String)map.get("bookingId"));
+        Long paymentId = Long.parseLong((String)map.get("paymentId"));
+
+        Optional<Booking> event = bookingRepository.findById(bookingId);
+        if(event != null){
+            Booking booking = event.get();
+            booking.setStatus("SUCCESS");
+            booking.setPaymentId(paymentId);
+            bookingRepository.save(booking);
+        }
+
+    }
+
+
+
+
+
 }
