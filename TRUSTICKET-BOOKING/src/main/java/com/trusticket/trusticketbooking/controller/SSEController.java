@@ -15,7 +15,6 @@ public class SSEController {
     public SseEmitter handleSse(@PathVariable Long memberId) {
         SseEmitter emitter = new SseEmitter(300 * 1000L);
         sseService.addEmitter(memberId, emitter);
-        sseService.sendStatus();
         return emitter;
     }
 }

@@ -24,6 +24,9 @@ public class Booking extends BaseEntity{
     @Column(name = "MEMBER_ID", nullable = false)
     private Long memberId;
 
+    @Column(name = "PAYMENT_ID")
+    private Long paymentId;
+
     @Column(name = "STATUS", nullable = false)
     private String status;
 }
