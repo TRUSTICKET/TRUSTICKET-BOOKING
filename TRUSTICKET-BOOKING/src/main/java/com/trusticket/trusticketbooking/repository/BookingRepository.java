@@ -18,9 +18,8 @@ import java.util.List;
 @Repository
 public interface BookingRepository extends JpaRepository<Booking, Long> {
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT COUNT(b) FROM Booking b WHERE b.status != 'CANCELED'")
-    long countByStatusConfirmWithLock();
+    @Query("SELECT COUNT(b) FROM Booking b WHERE b.status != 'CANCELED' and b.eventId = :eventId")
+    long countByStatusConfirm(@Param("eventId") String eventId);
 
     boolean existsBookingByEventIdAndMemberId(String eventId, Long memberId);
 

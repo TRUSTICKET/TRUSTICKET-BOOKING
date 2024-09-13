@@ -15,6 +15,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Slf4j
@@ -36,7 +38,8 @@ public class KafkaConsumerService {
     private final SSEService sseService;
     private final BookingCancelRepository bookingCancelRepository;
     private BookingCacheRepository bookingCacheRepository;
-    private KafkaConsumer<String, String> kafkaConsumer; // Kafka Consumer 주입
+    private final RedisTemplate<String, String> redisTemplate;
+    private final String LOCK_KEY_PREFIX = "BOOKING_LOCK";
 
     @KafkaListener(topics = "booking-request")
     @Transactional(isolation = Isolation.SERIALIZABLE)
@@ -70,40 +73,43 @@ public class KafkaConsumerService {
                     eventCacheRepository.insertEventCache(e.getEventId(), e.getMaxStock());
                     stock = e.getStock();
 
-//                    try{
-//                        Optional<Event> e = eventRepository.findById(event.getEventId());
-//                        if(e.get() == null){
-//                            return;
-//                        }
-//                        else{
-//                            eventCacheRepository.insertBookingCacheString(e.get().getEventId(), e.get().getMaxStock());
-//                            stock = e.get().getStock();
-//                        }
-//                    }
-//                    catch(Exception e){
-//                        return;
-//                    }
-
                 }
 
-                long count = bookingRepository.countByStatusConfirmWithLock();
+                // 락 시작
+                String lockKey = LOCK_KEY_PREFIX + event.getEventId();
+                Boolean lockAcquired = redisTemplate.opsForValue().setIfAbsent(lockKey, "LOCKED", 10, TimeUnit.SECONDS); // 10초 동안 유효한 락
 
-                BookingStatus status = new BookingStatus("SUCCESS", "예매에 성공했습니다. 결제화면으로 이동합니다.");
-                if(count < stock){
-                    if(!bookingRepository.existsBookingByEventIdAndMemberId(event.getEventId(), event.getMemberId())){
-                        bookingRepository.save(event);
+                if(Boolean.TRUE.equals(lockAcquired)){
+                    try{
+                        long count = bookingRepository.countByStatusConfirm(event.getEventId());
+
+                        BookingStatus status = new BookingStatus("SUCCESS", "예매에 성공했습니다. 결제화면으로 이동합니다.");
+                        if(count < stock){
+                            if(!bookingRepository.existsBookingByEventIdAndMemberId(event.getEventId(), event.getMemberId())){
+                                bookingRepository.save(event);
+
+                            }
+                            else{
+                                status = new BookingStatus("EXIST", "이미 예매한 내역이 있습니다.");
+                            }
+                        }
+                        else{
+                            status = new BookingStatus("FAIL", "인원이 초과되었습니다.");
+                        }
+
+                        sseService.sendResultData(event.getMemberId(), status);
+                        bookingCacheRepository.insertBookingCache(record.offset(), status.getResult());
 
                     }
-                    else{
-                        status = new BookingStatus("EXIST", "이미 예매한 내역이 있습니다.");
+                    finally {
+                        redisTemplate.delete(lockKey); //해당 이벤트의 Lock 해제.
                     }
                 }
                 else{
-                    status = new BookingStatus("FAIL", "인원이 초과되었습니다.");
+                    throw new IllegalStateException("사용자가 많아 처리에 실패하였습니다. 잠시 후 다시 시도해주세요.");
                 }
 
-                sseService.sendResultData(event.getMemberId(), status);
-                bookingCacheRepository.insertBookingCache(record.offset(), status.getResult());
+                // 락 종료
         }
         else{
             bookingCancelRepository.deleteBookingCancel(record.offset());
