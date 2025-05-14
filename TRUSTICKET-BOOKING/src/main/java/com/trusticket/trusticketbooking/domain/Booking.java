@@ -28,5 +28,9 @@ public class Booking extends BaseEntity{
     @Setter
     @Column(name = "STATUS", nullable = false)
     private String status;
+
+    @Setter
+    @Column(name = "PROFILE_URI")
+    private String profile_uri;
 }
 

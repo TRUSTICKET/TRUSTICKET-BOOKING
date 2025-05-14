@@ -3,9 +3,9 @@ spring:
     name: trusticket-booking
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://localhost:4004/trusticket-booking-db?characterEncoding=UTF-8&serverTimezone=UTC
-    username: root
-    password: 1111
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: update
@@ -14,15 +14,14 @@ spring:
 #        show_sql: true #show sql
         default_batch_fetch_size: 100
   kafka:
-    bootstrap-servers: localhost:9092
-
-
-server:
-  port: 8082
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+  cloud:
+    discovery:
+      enabled: false
 
 redis:
-  host: localhost
-  port: 6395
+  host: ${REDIS_HOST:localhost}
+  port: ${REDIS_PORT:6379}
 
 springdoc:
   swagger-ui:
@@ -44,12 +43,5 @@ springdoc:
     - /api/**
     - /login
 
-eureka:
-  client:
-    fetch-registry: true
-    register-with-eureka: true
-    service-url:
-      defaultZone: http://127.0.0.1:8761/eureka
-  instance:
-    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
-
+server:
+  port: 8080

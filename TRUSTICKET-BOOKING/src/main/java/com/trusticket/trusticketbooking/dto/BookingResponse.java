@@ -17,6 +17,7 @@ public class BookingResponse {
     private Long paymentId;
 
     private String status;
+    private String profile_uri;
 
 
 }

@@ -28,6 +28,7 @@ public class BookingService {
                             .eventId(x.getEventId())
                             .paymentId(x.getPaymentId())
                             .memberId(x.getMemberId())
+                            .profile_uri(x.getProfile_uri())
                             .status(x.getStatus()
                             ).build()
                 )
@@ -48,6 +49,7 @@ public class BookingService {
                     .bookingId(b.getBookingId())
                     .eventId(b.getEventId())
                     .paymentId(b.getPaymentId())
+                    .profile_uri(b.getProfile_uri())
                     .memberId(b.getMemberId())
                     .status(b.getStatus()).build();
 
